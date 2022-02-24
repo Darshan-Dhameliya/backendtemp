@@ -1,63 +1,102 @@
-const Emp = require("../models/employeeModel");
 const _ = require("underscore");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken")
-require("dotenv").config();
+const moment = require("moment");
+const Appoint = require("../models/appointmentModel");
+const Emp = require("../models/employeeModel");
 
-function empController() {
+function appointment() {
+  this.makeAppo = async (req, res) => {
+    let bdata = req.body;
+    const appoints = await Appoint.find({
+      $and: [
+        {
+          userid: bdata.userid,
+        },
+        { service: bdata.service },
+        { date: bdata.date },
+        { time: bdata.time },
+      ],
+    }).clone();
+    if (appoints.length) {
+      res.send({
+        status: false,
+        message: "Appoiment Already Book For this",
+      });
+    } else {
+      const data = await Emp.findOne({
+        service_Spec: bdata.service,
+        service_Area: bdata.area,
+      }).clone();
 
-    this.register = async (req, res) => {
-        const { name, email, phone, join_date, area, spec, password } = req.body;
-        if (_.isEmpty(name) || _.isEmpty(email) || _.isEmpty(phone) || _.isEmpty(join_date) || _.isEmpty(area) || _.isEmpty(spec) || _.isEmpty(password)) {
-            res.send({ status: false, message: "Plz,Enter Details.." });
-        } else {
-            const emailsearch = await Emp.exists({ email: email })
-            if (emailsearch) {
-                return res.json("This Email already Registered");
-            }
-            bcrypt.hash(password, 10, async function (err, hash) {
-                if (!err) {
-                    let empObj = {
-                        empName: name,
-                        email: email,
-                        phone: phone,
-                        join_Date: join_date,
-                        service_Area: area,
-                        service_Spec: spec,
-                        password: hash
-                    }
-                    Emp.create(empObj, (err, data) => {
-                        if (!err) {
-                            res.send("Thanks For Signing Up..");
-                        } else throw err;
-                    });
-                } else throw err;
+      const empNotAvailable = await await Emp.findOne({
+        emp_appoint: data.id,
+        time: bdata.time,
+      }).clone();
 
+      if (empNotAvailable) {
+        res.send({
+          status: false,
+          message: `Not Employee Avilable In ${bdata.area} on ${bdata.time},Please Choose Diffrent Time}`,
+        });
+      } else {
+        const ApppoiMentObJ = {
+          emp_appoint: data.id,
+          userid: bdata.userid,
+          username: bdata.username,
+          useremail: bdata.useremail,
+          userphone: bdata.userphone,
+          userAddress: bdata.userAddress,
+          service: bdata.service,
+          charge: bdata.charge,
+          area: bdata.area,
+          date: bdata.date,
+          time: bdata.time,
+        };
+        await Appoint.create(ApppoiMentObJ, (err, resu) => {
+          if (resu) {
+            res.send({
+              status: true,
+              AppID: resu._id,
+              message: "appointment taken successfully..",
             });
-        }
+          }
+        });
+      }
     }
+  };
 
-    this.login = async (req, res) => {
-        const { email, password } = req.body;
-        if (_.isEmpty(email)) {
-            res.send({ status: false, message: "Plz,Enter E-mail" });
-        } else if (_.isEmpty(password)) {
-            res.send({ status: false, message: "Plz,Enter Password" });
-        } else {
-            await Emp.findOne({ email: email }, (err, userdata) => {
-                if (!err) {
-                    if (!userdata) return res.json("please sign up");
-                    bcrypt.compare(password, userdata.password, function (err, result) {
-                        if (result) {
-                            let Token = jwt.sign({ email: email }, process.env.SECRET_KEY, { expiresIn: "10m" });
-                            return res.send({ status: true, Data: userdata, token: Token });
-                        }
-                        else return res.json("please enter correct password");
-                    });
-                } else throw err;
-            }).clone();
-        }
-    };
+  this.markAsCompleted = async (req, res) => {
+    const { id } = req.body;
+    try {
+      const data = await Appoint.findByIdAndUpdate(
+        id,
+        { isCompleted: true },
+        { new: true }
+      );
+      res.send({ status: true, data });
+    } catch (e) {
+      res.send({ status: false, e });
+    }
+  };
+
+  this.completemakeAppoUser = async (req, res) => {
+    const { id } = req.body;
+
+    const data = await Appoint.find({
+      $and: [{ emp_appoint: id }, { isCompleted: true }],
+    });
+
+    res.send({ status: true, data });
+  };
+
+  this.completemakeAppoEmp = async (req, res) => {
+    const { id } = req.body;
+
+    const data = await Appoint.find({
+      $and: [{ userid: id }, { isCompleted: true }],
+    });
+
+    res.send({ status: true, data });
+  };
 }
 
-module.exports = new empController();
+module.exports = new appointment();
