@@ -17,6 +17,12 @@ router.post("/emp/register", controllerEmp.register);
 
 router.post("/emp/login", controllerEmp.login);
 
-router.post("/user/appointment",auth,controllerAppointment.makeAppo)
+router.post("/user/appointment", controllerAppointment.makeAppo);
+
+router.post("/user/completeAppo", controllerAppointment.completemakeAppoUser);
+
+router.post("/emp/completeAppo", controllerAppointment.completemakeAppoEmp);
+
+router.post("/emp/markdone", controllerAppointment.markAsCompleted);
 
 module.exports = router;
